@@ -9,7 +9,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-from .model import LSTMDecoder  # Replace GRUDecoder with LSTMDecoder
+from .model import GRUDecoder, LSTMDecoder
 from .dataset import SpeechDataset
 
 
@@ -70,8 +70,15 @@ def trainModel(args):
         args["batchSize"],
     )
 
-    # Replace GRUDecoder with LSTMDecoder
-    model = LSTMDecoder(
+    # Select model type based on args['model_type']
+    if args["model_type"] == "GRU":
+        model_class = GRUDecoder
+    elif args["model_type"] == "LSTM":
+        model_class = LSTMDecoder
+    else:
+        raise ValueError(f"Unknown model type: {args['model_type']}")
+
+    model = model_class(
         neural_dim=args["nInputFeatures"],
         n_classes=args["nClasses"],
         hidden_dim=args["nUnits"],
@@ -218,8 +225,15 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
     with open(modelDir + "/args", "rb") as handle:
         args = pickle.load(handle)
 
-    # Replace GRUDecoder with LSTMDecoder
-    model = LSTMDecoder(
+    # Select model type based on args['model_type']
+    if args["model_type"] == "GRU":
+        model_class = GRUDecoder
+    elif args["model_type"] == "LSTM":
+        model_class = LSTMDecoder
+    else:
+        raise ValueError(f"Unknown model type: {args['model_type']}")
+
+    model = model_class(
         neural_dim=args["nInputFeatures"],
         n_classes=args["nClasses"],
         hidden_dim=args["nUnits"],
