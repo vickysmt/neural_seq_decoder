@@ -48,7 +48,7 @@ if partition == "competition":
 elif partition == "test":
     testDayIdxs = range(len(loadedData[partition]))
 
-for i, testDayIdx in testDayIdxs:
+for i, testDayIdx in enumerate(testDayIdxs):
     test_ds = SpeechDataset([loadedData[partition][i]])
     test_loader = torch.utils.data.DataLoader(
         test_ds, batch_size=1, shuffle=False, num_workers=0

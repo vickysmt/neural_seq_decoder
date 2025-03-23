@@ -9,7 +9,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-from .model import GRUDecoder
+from .model import LSTMDecoder  # Replace GRUDecoder with LSTMDecoder
 from .dataset import SpeechDataset
 
 
@@ -55,6 +55,7 @@ def getDatasetLoaders(
 
     return train_loader, test_loader, loadedData
 
+
 def trainModel(args):
     os.makedirs(args["outputDir"], exist_ok=True)
     torch.manual_seed(args["seed"])
@@ -69,7 +70,8 @@ def trainModel(args):
         args["batchSize"],
     )
 
-    model = GRUDecoder(
+    # Replace GRUDecoder with LSTMDecoder
+    model = LSTMDecoder(
         neural_dim=args["nInputFeatures"],
         n_classes=args["nClasses"],
         hidden_dim=args["nUnits"],
@@ -140,8 +142,6 @@ def trainModel(args):
         loss.backward()
         optimizer.step()
         scheduler.step()
-
-        # print(endTime - startTime)
 
         # Eval
         if batch % 100 == 0:
@@ -218,7 +218,8 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
     with open(modelDir + "/args", "rb") as handle:
         args = pickle.load(handle)
 
-    model = GRUDecoder(
+    # Replace GRUDecoder with LSTMDecoder
+    model = LSTMDecoder(
         neural_dim=args["nInputFeatures"],
         n_classes=args["nClasses"],
         hidden_dim=args["nUnits"],
@@ -240,6 +241,7 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
 def main(cfg):
     cfg.outputDir = os.getcwd()
     trainModel(cfg)
+
 
 if __name__ == "__main__":
     main()
