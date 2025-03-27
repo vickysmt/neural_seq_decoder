@@ -137,6 +137,7 @@ class LSTMDecoder(nn.Module):
         kernelLen=14,
         gaussianSmoothWidth=0,
         bidirectional=False,
+        use_layer_norm=True,
     ):
         super(LSTMDecoder, self).__init__()
 
@@ -202,6 +203,12 @@ class LSTMDecoder(nn.Module):
         else:
             self.fc_decoder_out = nn.Linear(hidden_dim, n_classes + 1)  # +1 for CTC blank
 
+        # Add Layer Normalization
+        self.use_layer_norm = use_layer_norm
+        if self.use_layer_norm:
+            # Normalization for LSTM outputs
+            self.lstm_layer_norm = nn.LayerNorm(hidden_dim * (2 if bidirectional else 1))
+
     def forward(self, neuralInput, dayIdx):
         # Gaussian smoothing
         neuralInput = torch.permute(neuralInput, (0, 2, 1))
@@ -253,6 +260,10 @@ class LSTMDecoder(nn.Module):
 
         # LSTM forward pass
         lstm_out, _ = self.lstm_decoder(stridedInputs, (h0.detach(), c0.detach()))
+
+        # Apply LayerNorm to LSTM outputs
+        if self.use_layer_norm:
+            lstm_out = self.lstm_layer_norm(lstm_out)
 
         # Output layer
         seq_out = self.fc_decoder_out(lstm_out)
