@@ -137,7 +137,7 @@ class LSTMDecoder(nn.Module):
         kernelLen=14,
         gaussianSmoothWidth=0,
         bidirectional=False,
-        use_layer_norm=True,
+        use_layer_norm=False,
     ):
         super(LSTMDecoder, self).__init__()
 
