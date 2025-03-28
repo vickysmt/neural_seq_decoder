@@ -94,7 +94,7 @@ def trainModel(args):
             gaussianSmoothWidth=args["gaussianSmoothWidth"],
             bidirectional=args["bidirectional"],
         ).to(device)
-    elif(args["model_type"] == "SLiGRU"):
+    elif(args["model_type"] == "LSTM"):
         model = LSTMDecoder(
             neural_dim=args["nInputFeatures"],
             n_classes=args["nClasses"],
@@ -310,7 +310,7 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
             gaussianSmoothWidth=args["gaussianSmoothWidth"],
             bidirectional=args["bidirectional"],
         ).to(device)
-    elif(args["model_type"] == "SLiGRU"):
+    elif(args["model_type"] == "LSTM"):
         model = LSTMDecoder(
             neural_dim=args["nInputFeatures"],
             n_classes=args["nClasses"],
