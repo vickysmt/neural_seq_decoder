@@ -37,8 +37,8 @@ def getDatasetLoaders(
             y_padded,
             torch.stack(X_lens),
             torch.stack(y_lens),
-            torch.stack(days),
-            idx
+            torch.stack(days)
+            # idx
         )
 
     train_ds = SpeechDataset(loadedData["train"], transform=None)
@@ -199,7 +199,8 @@ def trainModel(args):
             # allLoss = []
             total_edit_distance = 0
             total_seq_length = 0
-            for X, y, X_len, y_len, testDayIdx, idx in testLoader:
+            # for X, y, X_len, y_len, testDayIdx, idx in testLoader:
+            for X, y, X_len, y_len, testDayIdx in testLoader:
                 X, y, X_len, y_len, testDayIdx = (
                     X.to(device),
                     y.to(device),
