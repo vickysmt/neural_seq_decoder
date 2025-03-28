@@ -80,38 +80,27 @@ def trainModel(args):
         args["batchSize"],
     )
 
-    if(args["model_type"] == "GRU"):
-        model = GRUDecoder(
-            neural_dim=args["nInputFeatures"],
-            n_classes=args["nClasses"],
-            hidden_dim=args["nUnits"],
-            layer_dim=args["nLayers"],
-            nDays=len(loadedData["train"]),
-            dropout=args["dropout"],
-            device=device,
-            strideLen=args["strideLen"],
-            kernelLen=args["kernelLen"],
-            gaussianSmoothWidth=args["gaussianSmoothWidth"],
-            bidirectional=args["bidirectional"],
-        ).to(device)
-    elif(args["model_type"] == "LSTM"):
-        model = LSTMDecoder(
-            neural_dim=args["nInputFeatures"],
-            n_classes=args["nClasses"],
-            hidden_dim=args["nUnits"],
-            layer_dim=args["nLayers"],
-            nDays=len(loadedData["train"]),
-            dropout=args["dropout"],
-            device=device,
-            strideLen=args["strideLen"],
-            kernelLen=args["kernelLen"],
-            gaussianSmoothWidth=args["gaussianSmoothWidth"],
-            bidirectional=args["bidirectional"],
-            batch_size = args["batchSize"]
-        ).to(device)
+    # Select model type based on args['model_type']
+    if args["model_type"] == "GRU":
+        model_class = GRUDecoder
+    elif args["model_type"] == "LSTM":
+        model_class = LSTMDecoder
     else:
-        print("Input wrong model_type")
-        return
+        raise ValueError(f"Unknown model type: {args['model_type']}")
+
+    model = model_class(
+        neural_dim=args["nInputFeatures"],
+        n_classes=args["nClasses"],
+        hidden_dim=args["nUnits"],
+        layer_dim=args["nLayers"],
+        nDays=len(loadedData["train"]),
+        dropout=args["dropout"],
+        device=device,
+        strideLen=args["strideLen"],
+        kernelLen=args["kernelLen"],
+        gaussianSmoothWidth=args["gaussianSmoothWidth"],
+        bidirectional=args["bidirectional"],
+    ).to(device)
     
     # Compile model with TorchScript (Torch JIT)
     model = torch.jit.script(model)
@@ -296,52 +285,27 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
         args = pickle.load(handle)
 
 
-    if(args["model_type"] == "GRU"):
-        model = GRUDecoder(
-            neural_dim=args["nInputFeatures"],
-            n_classes=args["nClasses"],
-            hidden_dim=args["nUnits"],
-            layer_dim=args["nLayers"],
-            nDays=nInputLayers,
-            dropout=args["dropout"],
-            device=device,
-            strideLen=args["strideLen"],
-            kernelLen=args["kernelLen"],
-            gaussianSmoothWidth=args["gaussianSmoothWidth"],
-            bidirectional=args["bidirectional"],
-        ).to(device)
-    elif(args["model_type"] == "LSTM"):
-        model = LSTMDecoder(
-            neural_dim=args["nInputFeatures"],
-            n_classes=args["nClasses"],
-            hidden_dim=args["nUnits"],
-            layer_dim=args["nLayers"],
-            nDays=nInputLayers,
-            dropout=args["dropout"],
-            device=device,
-            strideLen=args["strideLen"],
-            kernelLen=args["kernelLen"],
-            gaussianSmoothWidth=args["gaussianSmoothWidth"],
-            bidirectional=args["bidirectional"],
-            batch_size=args["batchSize"]
-        ).to(device)
+    # Select model type based on args['model_type']
+    if args["model_type"] == "GRU":
+        model_class = GRUDecoder
+    elif args["model_type"] == "LSTM":
+        model_class = LSTMDecoder
     else:
-        print("Input wrong model_type")
-        return
+        raise ValueError(f"Unknown model type: {args['model_type']}")
 
-    # model = GRUDecoder(
-    #     neural_dim=args["nInputFeatures"],
-    #     n_classes=args["nClasses"],
-    #     hidden_dim=args["nUnits"],
-    #     layer_dim=args["nLayers"],
-    #     nDays=nInputLayers,
-    #     dropout=args["dropout"],
-    #     device=device,
-    #     strideLen=args["strideLen"],
-    #     kernelLen=args["kernelLen"],
-    #     gaussianSmoothWidth=args["gaussianSmoothWidth"],
-    #     bidirectional=args["bidirectional"],
-    # ).to(device)
+    model = model_class(
+        neural_dim=args["nInputFeatures"],
+        n_classes=args["nClasses"],
+        hidden_dim=args["nUnits"],
+        layer_dim=args["nLayers"],
+        nDays=len(loadedData["train"]),
+        dropout=args["dropout"],
+        device=device,
+        strideLen=args["strideLen"],
+        kernelLen=args["kernelLen"],
+        gaussianSmoothWidth=args["gaussianSmoothWidth"],
+        bidirectional=args["bidirectional"],
+    ).to(device)
 
     model.load_state_dict(torch.load(modelWeightPath, map_location=device))
     return model
