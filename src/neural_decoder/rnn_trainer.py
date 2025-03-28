@@ -27,7 +27,6 @@ def getDatasetLoaders(
         loadedData = pickle.load(handle)
 
     def _padding(batch):
-        # X, y, X_lens, y_lens, days, idx = zip(*batch)
         X, y, X_lens, y_lens, days = zip(*batch)
         X_padded = pad_sequence(X, batch_first=True, padding_value=0)
         y_padded = pad_sequence(y, batch_first=True, padding_value=0)
@@ -37,8 +36,7 @@ def getDatasetLoaders(
             y_padded,
             torch.stack(X_lens),
             torch.stack(y_lens),
-            torch.stack(days)
-            # idx
+            torch.stack(days),
         )
 
     train_ds = SpeechDataset(loadedData["train"], transform=None)
@@ -130,8 +128,7 @@ def trainModel(args):
         trainLoss = 0
         startTime = time.time()
 
-        # for X, y, X_len, y_len, dayIdx, idx in trainLoader:
-        # for batch_idx, (X, y, X_len, y_len, dayIdx, idx) in enumerate(tqdm(trainLoader, desc=f'Epoch {epoch+1}/{num_epochs}', ncols=100)):
+        # for X, y, X_len, y_len, dayIdx in trainLoader:
         for batch_idx, (X, y, X_len, y_len, dayIdx) in enumerate(tqdm(trainLoader, desc=f'Epoch {epoch+1}/{num_epochs}', ncols=100)):
             X, y, X_len, y_len, dayIdx = (
                 X.to(device),
