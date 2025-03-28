@@ -18,6 +18,7 @@ class GRUDecoder(nn.Module):
         kernelLen=14,
         gaussianSmoothWidth=0,
         bidirectional=False,
+        use_layer_norm=True,
     ):
         super(GRUDecoder, self).__init__()
 
@@ -80,6 +81,12 @@ class GRUDecoder(nn.Module):
         else:
             self.fc_decoder_out = nn.Linear(hidden_dim, n_classes + 1)  # +1 for CTC blank
 
+        # Add Layer Normalization or not
+        self.use_layer_norm = use_layer_norm
+
+        # Normalization for GRU outputs
+        self.gru_layer_norm = nn.LayerNorm(hidden_dim * (2 if bidirectional else 1))
+
     def forward(self, neuralInput, dayIdx):
         neuralInput = torch.permute(neuralInput, (0, 2, 1))
         neuralInput = self.gaussianSmoother(neuralInput)
@@ -117,6 +124,10 @@ class GRUDecoder(nn.Module):
             ).requires_grad_()
 
         hid, _ = self.gru_decoder(stridedInputs, h0.detach())
+
+        # Apply LayerNorm to GRU outputs
+        if self.use_layer_norm:
+            lstm_out = self.gru_layer_norm(lstm_out)
 
         # get seq
         seq_out = self.fc_decoder_out(hid)
