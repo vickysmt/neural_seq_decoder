@@ -130,7 +130,8 @@ def trainModel(args):
         startTime = time.time()
 
         # for X, y, X_len, y_len, dayIdx, idx in trainLoader:
-        for batch_idx, (X, y, X_len, y_len, dayIdx, idx) in enumerate(tqdm(trainLoader, desc=f'Epoch {epoch+1}/{num_epochs}', ncols=100)):
+        # for batch_idx, (X, y, X_len, y_len, dayIdx, idx) in enumerate(tqdm(trainLoader, desc=f'Epoch {epoch+1}/{num_epochs}', ncols=100)):
+        for batch_idx, (X, y, X_len, y_len, dayIdx) in enumerate(tqdm(trainLoader, desc=f'Epoch {epoch+1}/{num_epochs}', ncols=100)):
             X, y, X_len, y_len, dayIdx = (
                 X.to(device),
                 y.to(device),
