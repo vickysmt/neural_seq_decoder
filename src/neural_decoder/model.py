@@ -203,11 +203,11 @@ class LSTMDecoder(nn.Module):
         else:
             self.fc_decoder_out = nn.Linear(hidden_dim, n_classes + 1)  # +1 for CTC blank
 
-        # Add Layer Normalization
+        # Add Layer Normalization or not
         self.use_layer_norm = use_layer_norm
-        if self.use_layer_norm:
-            # Normalization for LSTM outputs
-            self.lstm_layer_norm = nn.LayerNorm(hidden_dim * (2 if bidirectional else 1))
+
+        # Normalization for LSTM outputs
+        self.lstm_layer_norm = nn.LayerNorm(hidden_dim * (2 if bidirectional else 1))
 
     def forward(self, neuralInput, dayIdx):
         # Gaussian smoothing
