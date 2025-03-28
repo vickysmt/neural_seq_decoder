@@ -27,7 +27,8 @@ def getDatasetLoaders(
         loadedData = pickle.load(handle)
 
     def _padding(batch):
-        X, y, X_lens, y_lens, days, idx = zip(*batch)
+        # X, y, X_lens, y_lens, days, idx = zip(*batch)
+        X, y, X_lens, y_lens, days = zip(*batch)
         X_padded = pad_sequence(X, batch_first=True, padding_value=0)
         y_padded = pad_sequence(y, batch_first=True, padding_value=0)
 
