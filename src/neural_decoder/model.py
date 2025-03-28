@@ -127,7 +127,7 @@ class GRUDecoder(nn.Module):
 
         # Apply LayerNorm to GRU outputs
         if self.use_layer_norm:
-            lstm_out = self.gru_layer_norm(lstm_out)
+            hid = self.gru_layer_norm(hid)
 
         # get seq
         seq_out = self.fc_decoder_out(hid)
