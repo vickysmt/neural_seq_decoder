@@ -9,14 +9,27 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-from .model import GRUDecoder
-from .model import LSTMDecoder
+from .model import GRUDecoder, LSTMDecoder
+
 from .dataset import SpeechDataset
 
 import wandb
 
 from .early_stopping import EarlyStopping
-from tqdm import tqdm 
+from tqdm import tqdm
+import psutil  # For RAM usage tracking
+
+PHONE_DEF = [
+    'AA', 'AE', 'AH', 'AO', 'AW',
+    'AY', 'B',  'CH', 'D', 'DH',
+    'EH', 'ER', 'EY', 'F', 'G',
+    'HH', 'IH', 'IY', 'JH', 'K',
+    'L', 'M', 'N', 'NG', 'OW',
+    'OY', 'P', 'R', 'S', 'SH',
+    'T', 'TH', 'UH', 'UW', 'V',
+    'W', 'Y', 'Z', 'ZH'
+]
+PHONE_DEF_SIL = PHONE_DEF + ['SIL'] # 'SIL' for blank space
 
 
 def getDatasetLoaders(
@@ -62,6 +75,21 @@ def getDatasetLoaders(
     return train_loader, test_loader, loadedData
 
 
+def apply_class_weights(logits, class_weights, device):
+    """Multiply logits by class weights before computing loss."""
+    # Convert class_weights dictionary to a tensor using phoneToId for indexing
+    # Assuming the phonemes are the keys in the class_weights dictionary
+    weight_tensor = torch.tensor([0]+
+        [class_weights[phoneme] for phoneme in PHONE_DEF_SIL],
+        dtype=torch.float32
+    ).to(device)
+    
+    # Reshape to match the shape of logits (batch_size, seq_length, num_classes)
+    weight_tensor = weight_tensor.view(1, 1, -1)
+    
+    # Apply class weights by multiplying logits with the weight tensor
+    return logits * weight_tensor
+
 
 def trainModel(args):
     os.makedirs(args["outputDir"], exist_ok=True)
@@ -69,8 +97,14 @@ def trainModel(args):
     np.random.seed(args["seed"])
     device = "cuda"
 
+    # Load args (hyperparameters)
     with open(args["outputDir"] + "/args", "wb") as file:
         pickle.dump(args, file)
+
+    # Load class weights
+    class_weights_dir = args['classWeightsPath'] 
+    with open(class_weights_dir, "rb") as handle:
+        class_weights = pickle.load(handle)
 
     num_epochs = args["nEpochs"]
 
@@ -102,7 +136,7 @@ def trainModel(args):
     ).to(device)
     
     # Compile model with TorchScript (Torch JIT)
-    model = torch.jit.script(model)
+    # model = torch.jit.script(model)
 
     loss_ctc = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
     optimizer = torch.optim.Adam(
@@ -128,7 +162,6 @@ def trainModel(args):
         trainLoss = 0
         startTime = time.time()
 
-        # for X, y, X_len, y_len, dayIdx in trainLoader:
         for batch_idx, (X, y, X_len, y_len, dayIdx) in enumerate(tqdm(trainLoader, desc=f'Epoch {epoch+1}/{num_epochs}', ncols=100)):
             X, y, X_len, y_len, dayIdx = (
                 X.to(device),
@@ -152,8 +185,12 @@ def trainModel(args):
             pred = model.forward(X, dayIdx)
             # print(f"Shape of pred = {pred.shape}")
 
+            # Apply class weights to prediction to reduce class imbalance effect
+            weighted_pred = apply_class_weights(pred, class_weights, device)
+
+            # Calculate CTC loss
             loss = loss_ctc(
-                torch.permute(pred.log_softmax(2), [1, 0, 2]),
+                torch.permute(weighted_pred.log_softmax(2), [1, 0, 2]),
                 y,
                 ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
                 y_len,
@@ -178,13 +215,8 @@ def trainModel(args):
             
             # Update parameters
             optimizer.step()
-            scheduler.step()
+        scheduler.step()
 
-            # Print training loss every 100 batches
-            # if batch_idx % 100 == 0:
-            #     print(f'Batch {batch_idx}, Train CTC Loss: {loss.cpu().detach().numpy():>7f}')
-
-            # print(endTime - startTime)
         trainLoss /= len(trainLoader)
         
 
@@ -196,7 +228,6 @@ def trainModel(args):
             # allLoss = []
             total_edit_distance = 0
             total_seq_length = 0
-            # for X, y, X_len, y_len, testDayIdx, idx in testLoader:
             for X, y, X_len, y_len, testDayIdx in testLoader:
                 X, y, X_len, y_len, testDayIdx = (
                     X.to(device),
@@ -248,42 +279,38 @@ def trainModel(args):
 
         endTime = time.time()
         print(
-            f"epoch {epoch}, train ctc loss: {trainLoss:>7f}, val ctc loss: {valLoss:>7f}, val cer: {cer:>7f}, grad norm: {total_grad_norm:>7f} time/epoch: {(endTime - startTime):>7.3f} seconds"
+            f"epoch {epoch}, train ctc loss: {trainLoss:>7f}, val ctc loss: {valLoss:>7f}, val cer: {cer:>7f}, grad norm: {total_grad_norm:>7f}, learning rate: {scheduler.get_last_lr()[0]:>7f}, time/epoch: {(endTime - startTime):>7.3f} seconds"
         )
-        startTime = time.time()
 
-        # if len(valCER) > 0 and cer < np.min(valCER):
-        #     torch.save(model.state_dict(), args["outputDir"] + "/modelWeights") # Save the model weights if the validation CER is reduced
-
-        # Check if valLoss has reduced for early stopping
-        early_stopping(valLoss, model)
-        if early_stopping.early_stop:
-            print("Early stopping")
-            break
+        ram_usage = psutil.virtual_memory().used / (1024 ** 2)  # in MB
         
-        # testLoss.append(valAvgDayLoss)
-        # testCER.append(cer)
-
-        # tStats = {}
-        # tStats["testLoss"] = np.array(testLoss)
-        # tStats["testCER"] = np.array(testCER)
-        # tStats["trainLoss"] = np.array(trainLoss)
 
         # Log on wandb
         wandb.log({"valLoss":valLoss,
                     "valCER": cer,
                     "trainLoss": trainLoss,
-                    "gradNorm": total_grad_norm})
+                    "gradNorm": total_grad_norm,
+                    "epochTrainTime":endTime - startTime,
+                    "ramUsage": ram_usage})
+        
+        early_stopping(valLoss, model)
+        if early_stopping.early_stop:
+            print("Early stopping")
+            # wandb.finish()
+            break
 
         # with open(args["outputDir"] + "/trainingStats", "wb") as file:
         #     pickle.dump(tStats, file)
+
+        startTime = time.time()
+
+    wandb.finish()
 
 
 def loadModel(modelDir, nInputLayers=24, device="cuda"):
     modelWeightPath = modelDir + "/modelWeights"
     with open(modelDir + "/args", "rb") as handle:
         args = pickle.load(handle)
-
 
     # Select model type based on args['model_type']
     if args["model_type"] == "GRU":
@@ -298,7 +325,7 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
         n_classes=args["nClasses"],
         hidden_dim=args["nUnits"],
         layer_dim=args["nLayers"],
-        nDays=len(loadedData["train"]),
+        nDays=nInputLayers,
         dropout=args["dropout"],
         device=device,
         strideLen=args["strideLen"],
@@ -307,7 +334,7 @@ def loadModel(modelDir, nInputLayers=24, device="cuda"):
         bidirectional=args["bidirectional"],
     ).to(device)
 
-    model.load_state_dict(torch.load(modelWeightPath, map_location=device))
+    model.load_state_dict(torch.load(modelWeightPath, map_location=device), strict=False)
     return model
 
 
