@@ -75,22 +75,6 @@ def getDatasetLoaders(
     return train_loader, test_loader, loadedData
 
 
-def apply_class_weights(logits, class_weights, device):
-    """Multiply logits by class weights before computing loss."""
-    # Convert class_weights dictionary to a tensor using phoneToId for indexing
-    # Assuming the phonemes are the keys in the class_weights dictionary
-    weight_tensor = torch.tensor([0]+
-        [class_weights[phoneme] for phoneme in PHONE_DEF_SIL],
-        dtype=torch.float32
-    ).to(device)
-    
-    # Reshape to match the shape of logits (batch_size, seq_length, num_classes)
-    weight_tensor = weight_tensor.view(1, 1, -1)
-    
-    # Apply class weights by multiplying logits with the weight tensor
-    return logits * weight_tensor
-
-
 def trainModel(args):
     os.makedirs(args["outputDir"], exist_ok=True)
     torch.manual_seed(args["seed"])
@@ -100,11 +84,6 @@ def trainModel(args):
     # Load args (hyperparameters)
     with open(args["outputDir"] + "/args", "wb") as file:
         pickle.dump(args, file)
-
-    # Load class weights
-    class_weights_dir = args['classWeightsPath'] 
-    with open(class_weights_dir, "rb") as handle:
-        class_weights = pickle.load(handle)
 
     num_epochs = args["nEpochs"]
 
@@ -185,12 +164,9 @@ def trainModel(args):
             pred = model.forward(X, dayIdx)
             # print(f"Shape of pred = {pred.shape}")
 
-            # Apply class weights to prediction to reduce class imbalance effect
-            weighted_pred = apply_class_weights(pred, class_weights, device)
-
             # Calculate CTC loss
             loss = loss_ctc(
-                torch.permute(weighted_pred.log_softmax(2), [1, 0, 2]),
+                torch.permute(pred.log_softmax(2), [1, 0, 2]),
                 y,
                 ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
                 y_len,
@@ -211,7 +187,6 @@ def trainModel(args):
 
             # Clip gradients
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=args['gradClipVal'])
-            
             
             # Update parameters
             optimizer.step()
