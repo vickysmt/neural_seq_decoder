@@ -118,7 +118,7 @@ def trainModel(args):
     # Compile model with TorchScript (Torch JIT)
     # model = torch.jit.script(model)
 
-    loss_focal_ctc = FocalCTCLoss(blank=0, gamma=2.0, reduction="mean").to(device)
+    # loss_focal_ctc = FocalCTCLoss(blank=0, gamma=2.0, reduction="mean").to(device)
     loss_ctc = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -168,18 +168,18 @@ def trainModel(args):
             # print(f"Shape of pred = {pred.shape}")
 
             # Calculate CTC loss
-            loss = loss_focal_ctc(
-                torch.permute(pred.log_softmax(2), [1, 0, 2]),
-                y,
-                ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
-                y_len,
-            )
-            # loss = loss_ctc(
+            # loss = loss_focal_ctc(
             #     torch.permute(pred.log_softmax(2), [1, 0, 2]),
             #     y,
             #     ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
             #     y_len,
             # )
+            loss = loss_ctc(
+                torch.permute(pred.log_softmax(2), [1, 0, 2]),
+                y,
+                ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
+                y_len,
+            )
             # loss = torch.sum(loss) # Loss is a scalar so no need to sum
             trainLoss += loss.cpu().detach().numpy()
 
