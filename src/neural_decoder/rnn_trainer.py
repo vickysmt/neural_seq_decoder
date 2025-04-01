@@ -76,7 +76,7 @@ def getDatasetLoaders(
     return train_loader, test_loader, loadedData
 
 
-def trainModel(args):
+def trainModel(args, pretrained_model_dir = None):
     os.makedirs(args["outputDir"], exist_ok=True)
     torch.manual_seed(args["seed"])
     np.random.seed(args["seed"])
@@ -85,6 +85,7 @@ def trainModel(args):
     # Load args (hyperparameters)
     with open(args["outputDir"] + "/args", "wb") as file:
         pickle.dump(args, file)
+
 
     num_epochs = args["nEpochs"]
 
@@ -114,12 +115,18 @@ def trainModel(args):
         gaussianSmoothWidth=args["gaussianSmoothWidth"],
         bidirectional=args["bidirectional"],
     ).to(device)
+
+    if pretrained_model_dir != None:
+        modelWeightPath = pretrained_model_dir + "/modelWeights"
+        model.load_state_dict(torch.load(modelWeightPath, map_location=device), strict=False)
+        print("Done load trained model")   
     
     # Compile model with TorchScript (Torch JIT)
     # model = torch.jit.script(model)
 
-    # loss_focal_ctc = FocalCTCLoss(blank=0, gamma=2.0, reduction="mean").to(device)
+    loss_focal_ctc = FocalCTCLoss(blank=0, gamma=2.0, reduction="mean").to(device)
     loss_ctc = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
+
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=args["lrStart"],
@@ -169,11 +176,6 @@ def trainModel(args):
 
             # Calculate CTC loss
             # loss = loss_focal_ctc(
-            #     torch.permute(pred.log_softmax(2), [1, 0, 2]),
-            #     y,
-            #     ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
-            #     y_len,
-            # )
             loss = loss_ctc(
                 torch.permute(pred.log_softmax(2), [1, 0, 2]),
                 y,
@@ -199,6 +201,7 @@ def trainModel(args):
             
             # Update parameters
             optimizer.step()
+
         # scheduler.step()
 
         trainLoss /= len(trainLoader)
@@ -284,9 +287,6 @@ def trainModel(args):
         if early_stopping.early_stop:
             print("Early stopping")
             break
-
-        # with open(args["outputDir"] + "/trainingStats", "wb") as file:
-        #     pickle.dump(tStats, file)
 
         startTime = time.time()
 
