@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from .model import GRUDecoder, LSTMDecoder
 
 from .dataset import SpeechDataset
+from .focal_loss import FocalCTCLoss
 
 import wandb
 
@@ -117,6 +118,7 @@ def trainModel(args):
     # Compile model with TorchScript (Torch JIT)
     # model = torch.jit.script(model)
 
+    loss_focal_ctc = FocalCTCLoss(blank=0, gamma=2.0, reduction="mean").to(device)
     loss_ctc = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -125,12 +127,13 @@ def trainModel(args):
         eps=0.1,
         weight_decay=args["l2_decay"],
     )
-    scheduler = torch.optim.lr_scheduler.LinearLR(
-        optimizer,
-        start_factor=1.0,
-        end_factor=args["lrEnd"] / args["lrStart"],
-        total_iters=args["nEpochs"],
-    )
+    # scheduler = torch.optim.lr_scheduler.LinearLR(
+    #     optimizer,
+    #     start_factor=1.0,
+    #     end_factor=args["lrEnd"] / args["lrStart"],
+    #     total_iters=args["nEpochs"],
+    # )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=args['ReduceLROnPlateau_patience'], factor=args['ReduceLROnPlateau_factor'])
 
     early_stopping = EarlyStopping(patience=args["earlyStop_patience"], delta=args["earlyStop_minChange"], output_dir=args["outputDir"])
 
@@ -165,12 +168,18 @@ def trainModel(args):
             # print(f"Shape of pred = {pred.shape}")
 
             # Calculate CTC loss
-            loss = loss_ctc(
+            loss = loss_focal_ctc(
                 torch.permute(pred.log_softmax(2), [1, 0, 2]),
                 y,
                 ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
                 y_len,
             )
+            # loss = loss_ctc(
+            #     torch.permute(pred.log_softmax(2), [1, 0, 2]),
+            #     y,
+            #     ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
+            #     y_len,
+            # )
             # loss = torch.sum(loss) # Loss is a scalar so no need to sum
             trainLoss += loss.cpu().detach().numpy()
 
@@ -190,7 +199,7 @@ def trainModel(args):
             
             # Update parameters
             optimizer.step()
-        scheduler.step()
+        # scheduler.step()
 
         trainLoss /= len(trainLoader)
         
@@ -261,17 +270,16 @@ def trainModel(args):
         
 
         # Log on wandb
-        wandb.log({"valLoss":valLoss,
+        wandb.log({"valLoss": valLoss,
                     "valCER": cer,
                     "trainLoss": trainLoss,
                     "gradNorm": total_grad_norm,
-                    "epochTrainTime":endTime - startTime,
+                    "epochTrainTime": endTime - startTime,
                     "ramUsage": ram_usage})
         
         early_stopping(valLoss, model)
         if early_stopping.early_stop:
             print("Early stopping")
-            # wandb.finish()
             break
 
         # with open(args["outputDir"] + "/trainingStats", "wb") as file:
