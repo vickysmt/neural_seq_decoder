@@ -261,6 +261,9 @@ def trainModel(args):
         cer = total_edit_distance / total_seq_length
         # valCER.append(cer)
 
+        # scheduler.step()
+        scheduler.step(valLoss) # Adjust learning rate based on validation loss trend
+
         endTime = time.time()
         print(
             f"epoch {epoch}, train ctc loss: {trainLoss:>7f}, val ctc loss: {valLoss:>7f}, val cer: {cer:>7f}, grad norm: {total_grad_norm:>7f}, learning rate: {scheduler.get_last_lr()[0]:>7f}, time/epoch: {(endTime - startTime):>7.3f} seconds"
