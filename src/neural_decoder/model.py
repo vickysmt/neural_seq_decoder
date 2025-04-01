@@ -18,7 +18,7 @@ class GRUDecoder(nn.Module):
         kernelLen=14,
         gaussianSmoothWidth=0,
         bidirectional=False,
-        use_layer_norm=False,
+        use_layer_norm=True,
     ):
         super(GRUDecoder, self).__init__()
 
@@ -148,7 +148,7 @@ class LSTMDecoder(nn.Module):
         kernelLen=14,
         gaussianSmoothWidth=0,
         bidirectional=False,
-        use_layer_norm=False,
+        use_layer_norm=True,
     ):
         super(LSTMDecoder, self).__init__()
 
