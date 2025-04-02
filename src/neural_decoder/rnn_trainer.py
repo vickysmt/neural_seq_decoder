@@ -175,8 +175,8 @@ def trainModel(args, pretrained_model_dir = None):
             # print(f"Shape of pred = {pred.shape}")
 
             # Calculate CTC loss
-            # loss = loss_focal_ctc(
-            loss = loss_ctc(
+            loss = loss_focal_ctc(
+            # loss = loss_ctc(
                 torch.permute(pred.log_softmax(2), [1, 0, 2]),
                 y,
                 ((X_len - model.kernelLen) / model.strideLen).to(torch.int32),
@@ -283,7 +283,7 @@ def trainModel(args, pretrained_model_dir = None):
                     "epochTrainTime": endTime - startTime,
                     "ramUsage": ram_usage})
         
-        early_stopping(valLoss, model)
+        early_stopping(cer, model)
         if early_stopping.early_stop:
             print("Early stopping")
             break
